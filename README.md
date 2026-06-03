@@ -1,91 +1,74 @@
 # Ok Period
 
-UIKit iOS app with Firebase Authentication supporting **Google Sign-In** and **Email OTP** verification.
+A UIKit iOS app with Firebase Authentication — **Google Sign-In** and **Email OTP** verification.
 
-## Architecture
+## Requirements
 
-```
-OkPeriod/
-├── App/                 AppDelegate, SceneDelegate (auth state routing)
-├── Authentication/      AuthService (Firebase Auth + Cloud Functions)
-├── Screens/             Login, Email entry, OTP verification, Home
-├── Utilities/           Shared UI theme and helpers
-└── Resources/           Info.plist, GoogleService-Info.plist, assets
+- Xcode 16+ (iOS 26 deployment target)
+- Apple Developer account (for running on a physical device)
+- Firebase project: `ok-period` (already configured via `GoogleService-Info.plist`)
 
-functions/               Firebase Cloud Functions for email OTP
-```
+## Run the App
 
-## Firebase Project
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/mayankkk0801/ok-period.git
+   cd ok-period
+   ```
 
-- **Project ID:** `ok-period`
-- **Bundle ID:** `com.okperiod.app`
-- **Console:** https://console.firebase.google.com/project/ok-period/overview
+2. **Open in Xcode**
+   ```bash
+   open OkPeriod.xcodeproj
+   ```
 
-Auth providers enabled: Google Sign-In, Email/Password (for custom-token email OTP flow).
+3. **Wait for Swift packages to resolve**  
+   Xcode automatically downloads Firebase and Google Sign-In dependencies.
 
-## Getting Started
+4. **Set your signing team**  
+   Select the **OkPeriod** target → **Signing & Capabilities** → choose your **Team**.
 
-### 1. Open in Xcode
+5. **Run**  
+   Pick a simulator or connected iPhone → press **⌘R**.
 
-Open `OkPeriod.xcodeproj`. Xcode resolves Swift Package Manager dependencies automatically:
+### Sign in options
 
-- [Firebase iOS SDK](https://github.com/firebase/firebase-ios-sdk) (Auth, Functions)
-- [Google SignIn iOS](https://github.com/google/GoogleSignIn-iOS)
+| Method | Works out of the box? |
+|--------|----------------------|
+| **Google Sign-In** | Yes (simulator or device) |
+| **Email OTP** | Requires Cloud Functions (see below) |
 
-Select your development team under **Signing & Capabilities** to run on a device or simulator.
+---
 
-### 2. Deploy Cloud Functions
+## Email OTP Setup (optional)
 
-Email OTP is handled by callable Cloud Functions (`requestEmailOTP`, `verifyEmailOTP`).
+Email sign-in uses Firebase Cloud Functions. These must be deployed before the OTP flow works.
 
-**Note:** Cloud Functions require the Firebase **Blaze (pay-as-you-go)** plan. Upgrade at:
-https://console.firebase.google.com/project/ok-period/usage/details
-
-```bash
-cd functions
-npm install
-cd ..
-npx firebase-tools@latest deploy --only functions,firestore:rules --project ok-period
-```
-
-#### Email delivery (SendGrid)
-
-Set secrets for production email delivery:
+**Prerequisites:** Firebase Blaze plan + Firebase CLI (`npm install -g firebase-tools`)
 
 ```bash
-npx firebase-tools@latest functions:secrets:set SENDGRID_API_KEY --project ok-period
-npx firebase-tools@latest functions:secrets:set OTP_FROM_EMAIL --project ok-period
+firebase login
+cd functions && npm install && cd ..
+firebase deploy --only functions,firestore:rules --project ok-period
 ```
 
-Without `SENDGRID_API_KEY`, the OTP is logged to Cloud Functions logs for development:
+**Cloud Run permissions (one-time):**  
+In [Google Cloud Console → Cloud Run](https://console.cloud.google.com/run?project=ok-period), add **Cloud Run Invoker** for `allUsers` on both `requestemailotp` and `verifyemailotp`.
 
-```bash
-npx firebase-tools@latest functions:log --project ok-period
+**IAM for sign-in token (one-time):**  
+In [Google Cloud IAM](https://console.cloud.google.com/iam-admin/iam?project=ok-period), add **Service Account Token Creator** to `ok-period@appspot.gserviceaccount.com`.
+
+**Without SendGrid:** OTP codes appear in [Firebase Functions logs](https://console.firebase.google.com/project/ok-period/functions/logs), not in email.
+
+---
+
+## Project Structure
+
+```
+OkPeriod/          iOS app (UIKit)
+functions/         Firebase Cloud Functions (email OTP)
+firebase.json      Firebase configuration
 ```
 
-### 3. Google Sign-In on device
+## Firebase Console
 
-For Google Sign-In on a physical device, add your app's **iOS URL scheme** (already configured from `REVERSED_CLIENT_ID` in `GoogleService-Info.plist`) and ensure the bundle ID matches `com.okperiod.app` in the Firebase console.
-
-## Authentication Flows
-
-### Google Sign-In
-
-1. User taps **Sign in with Google** on the login screen.
-2. `AuthService` presents the Google Sign-In sheet and exchanges the ID token for a Firebase credential.
-3. On success, `SceneDelegate` routes to `HomeViewController`.
-
-### Email OTP
-
-1. User taps **Sign in with Email** and enters their email.
-2. App calls `requestEmailOTP` — a 6-digit code is stored (hashed) in Firestore and emailed.
-3. User enters the code on the OTP screen.
-4. App calls `verifyEmailOTP` — on success, receives a Firebase custom token and signs in.
-
-## Local Emulator (optional)
-
-```bash
-cd functions && npm run serve
-```
-
-Point the iOS app at emulators by uncommenting emulator configuration in `AuthService` if needed during development.
+https://console.firebase.google.com/project/ok-period/overview
